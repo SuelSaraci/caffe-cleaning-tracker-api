@@ -29,10 +29,12 @@ const isRailway =
 const isProduction = process.env.NODE_ENV === "production";
 const needsSSL = isProduction || isRailway;
 
+// Railway uses self-signed certs - allow by default; set DB_SSL_REJECT_UNAUTHORIZED=true to enforce
 const sslConfig = needsSSL
   ? {
-      rejectUnauthorized:
-        isRailway && process.env.DB_SSL_REJECT_UNAUTHORIZED !== "true",
+      rejectUnauthorized: isRailway
+        ? process.env.DB_SSL_REJECT_UNAUTHORIZED === "true"
+        : process.env.DB_SSL_REJECT_UNAUTHORIZED !== "false",
       ...(process.env.DB_CA_CERT && { ca: process.env.DB_CA_CERT }),
     }
   : false;
@@ -40,7 +42,7 @@ const sslConfig = needsSSL
 const pool = new Pool({
   connectionString,
   ssl: sslConfig,
-  connectionTimeoutMillis: 10000,
+  connectionTimeoutMillis: 30000,
   idleTimeoutMillis: 30000,
 });
 
