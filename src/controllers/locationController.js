@@ -12,13 +12,19 @@ function rowToLocation(row) {
     reminders: row.reminders ?? "",
     completed: row.completed ?? false,
     ownerAcceptance: row.owner_acceptance ?? undefined,
+    coffeePriceKg:
+      row.coffee_price_kg !== null && row.coffee_price_kg !== undefined
+        ? Number(row.coffee_price_kg)
+        : null,
+    coffeeType: row.coffee_type ?? null,
+    phone: row.phone ?? null,
   };
 }
 
 export const getAllLocations = async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT * FROM locations ORDER BY city, name"
+      "SELECT * FROM locations ORDER BY city, name",
     );
     res.json(result.rows.map(rowToLocation));
   } catch (error) {
@@ -45,15 +51,27 @@ export const getLocationById = async (req, res) => {
 
 export const createLocation = async (req, res) => {
   try {
-    const { name, location, city } = req.body;
+    const { name, location, city, coffeePriceKg, coffeeType, phone } = req.body;
     if (!name || !location) {
       return res.status(400).json({ error: "name and location are required" });
     }
     const id = `loc-${Date.now()}`;
     await pool.query(
-      `INSERT INTO locations (id, name, location, city, cleaned, coffee_delivered, reminders, completed)
-       VALUES ($1, $2, $3, $4, false, false, '', false)`,
-      [id, name, location, (city ?? "").trim()]
+      `INSERT INTO locations (
+         id, name, location, city,
+         cleaned, coffee_delivered, reminders, completed,
+         coffee_price_kg, coffee_type, phone
+       )
+       VALUES ($1, $2, $3, $4, false, false, '', false, $5, $6, $7)`,
+      [
+        id,
+        name,
+        location,
+        (city ?? "").trim(),
+        coffeePriceKg ?? null,
+        coffeeType ?? null,
+        phone ?? null,
+      ],
     );
     const result = await pool.query("SELECT * FROM locations WHERE id = $1", [
       id,
@@ -68,7 +86,19 @@ export const createLocation = async (req, res) => {
 export const updateLocation = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, location, city, cleaned, coffeeDelivered, reminders, completed, ownerAcceptance } = req.body;
+    const {
+      name,
+      location,
+      city,
+      cleaned,
+      coffeeDelivered,
+      reminders,
+      completed,
+      ownerAcceptance,
+      coffeePriceKg,
+      coffeeType,
+      phone,
+    } = req.body;
 
     const updates = [];
     const values = [];
@@ -106,6 +136,18 @@ export const updateLocation = async (req, res) => {
       updates.push(`owner_acceptance = $${paramCount++}`);
       values.push(JSON.stringify(ownerAcceptance));
     }
+    if (coffeePriceKg !== undefined) {
+      updates.push(`coffee_price_kg = $${paramCount++}`);
+      values.push(coffeePriceKg);
+    }
+    if (coffeeType !== undefined) {
+      updates.push(`coffee_type = $${paramCount++}`);
+      values.push(coffeeType);
+    }
+    if (phone !== undefined) {
+      updates.push(`phone = $${paramCount++}`);
+      values.push(phone);
+    }
 
     if (updates.length === 0) {
       return res.status(400).json({ error: "No fields to update" });
@@ -131,7 +173,10 @@ export const updateLocation = async (req, res) => {
 export const deleteLocation = async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query("DELETE FROM locations WHERE id = $1 RETURNING id", [id]);
+    const result = await pool.query(
+      "DELETE FROM locations WHERE id = $1 RETURNING id",
+      [id],
+    );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Location not found" });
     }
@@ -144,23 +189,20 @@ export const deleteLocation = async (req, res) => {
 
 export const resetLocations = async (req, res) => {
   try {
-    const { rawLocations } = await import("../database/seeders/seedData.js");
-    const sorted = [...rawLocations].sort((a, b) => {
-      const byCity = (a.City || "").localeCompare(b.City || "", "sq");
-      return byCity !== 0 ? byCity : (a.Name || "").localeCompare(b.Name || "", "sq");
-    });
+    // Reset only task-related fields; keep cafe info, coffee config, and phone
+    await pool.query(
+      `UPDATE locations
+       SET cleaned = false,
+           coffee_delivered = false,
+           reminders = '',
+           completed = false,
+           owner_acceptance = NULL,
+           updated_at = CURRENT_TIMESTAMP`,
+    );
 
-    await pool.query("DELETE FROM locations");
-    for (let i = 0; i < sorted.length; i++) {
-      const loc = sorted[i];
-      await pool.query(
-        `INSERT INTO locations (id, name, location, city, cleaned, coffee_delivered, reminders, completed)
-         VALUES ($1, $2, $3, $4, false, false, '', false)`,
-        [`loc-${i}`, loc.Name, loc.Location, loc.City ?? ""]
-      );
-    }
-
-    const result = await pool.query("SELECT * FROM locations ORDER BY city, name");
+    const result = await pool.query(
+      "SELECT * FROM locations ORDER BY city, name",
+    );
     res.json(result.rows.map(rowToLocation));
   } catch (error) {
     console.error("Error resetting locations:", error);
@@ -172,7 +214,9 @@ export const exportReportPdf = async (req, res) => {
   let browser;
   try {
     // Fetch all locations from the database
-    const result = await pool.query("SELECT * FROM locations ORDER BY city, name");
+    const result = await pool.query(
+      "SELECT * FROM locations ORDER BY city, name",
+    );
     const locations = result.rows.map(rowToLocation);
 
     // Calculate current week range (Monday - Sunday)
@@ -240,7 +284,7 @@ export const exportReportPdf = async (req, res) => {
               width: 160px; 
             }
             .notes-col { 
-              width: 200px; 
+              width: 220px; 
             }
           </style>
         </head>
@@ -265,6 +309,10 @@ export const exportReportPdf = async (req, res) => {
                   const sigCell = loc.ownerAcceptance?.ownerSignature
                     ? `<img src="${loc.ownerAcceptance.ownerSignature}" alt="Nënshkrimi" style="max-height: 40px; display: block;" />`
                     : loc.ownerAcceptance?.acceptedTime || "";
+
+                  // Shënime ekstra: only the description / reminders text
+                  const notesCombined = loc.reminders || "";
+
                   return `
                 <tr>
                   <td>${index + 1}</td>
@@ -272,7 +320,7 @@ export const exportReportPdf = async (req, res) => {
                   <td>${loc.ownerAcceptance?.acceptedDate || ""}</td>
                   <td>${loc.ownerAcceptance?.ownerName || ""}</td>
                   <td>${sigCell}</td>
-                  <td>${loc.reminders || ""}</td>
+                  <td>${notesCombined}</td>
                 </tr>
               `;
                 })
@@ -287,40 +335,44 @@ export const exportReportPdf = async (req, res) => {
     browser = await puppeteer.launch({
       headless: true,
       args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu'
-      ]
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+      ],
     });
 
     const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'networkidle0' });
+    await page.setContent(html, { waitUntil: "networkidle0" });
 
     // Generate PDF
     const pdfBuffer = await page.pdf({
-      format: 'A4',
+      format: "A4",
       printBackground: true,
       margin: {
-        top: '20px',
-        right: '20px',
-        bottom: '20px',
-        left: '20px'
-      }
+        top: "20px",
+        right: "20px",
+        bottom: "20px",
+        left: "20px",
+      },
     });
 
     await browser.close();
 
     // Set response headers for PDF download
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="raport-${mondayStr.replace(/\//g, '-')}-${sundayStr.replace(/\//g, '-')}.pdf"`);
-    res.setHeader('Content-Length', pdfBuffer.length);
-    res.end(pdfBuffer, 'binary');
-
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="raport-${mondayStr.replace(/\//g, "-")}-${sundayStr.replace(/\//g, "-")}.pdf"`,
+    );
+    res.setHeader("Content-Length", pdfBuffer.length);
+    res.end(pdfBuffer, "binary");
   } catch (error) {
     console.error("Error generating PDF report:", error);
     if (browser) {
-      await browser.close().catch(err => console.error("Error closing browser:", err));
+      await browser
+        .close()
+        .catch((err) => console.error("Error closing browser:", err));
     }
     res.status(500).json({ error: "Failed to generate PDF report" });
   }

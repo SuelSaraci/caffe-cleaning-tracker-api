@@ -122,6 +122,7 @@ export const rawLocations = [
     Name: "Louvard",
     Location: "https://maps.google.com/?q=42.654694,21.178930",
     City: "Prishtinë",
+    CoffeePriceKg: 25,
   },
   {
     Name: "Vertigo Bregu i diellit",
@@ -205,11 +206,15 @@ export const rawLocations = [
     Location:
       "https://www.google.com/maps/place/Pizzeria+AME/@42.8361541,20.9594313,176m/data=!3m1!1e3!4m6!3m5!1s0x13535b1d9ba88169:0x733da3f3f932b3a5!8m2!3d42.83608!4d20.9598492!16s%2Fg%2F11v41gnkps?entry=ttu&g_ep=EgoyMDI2MDIwNC4wIKXMDSoKLDEwMDc5MjA3M0gBUAM%3D",
     City: "Vushtrri",
+    CoffeePriceKg: 18,
+    Phone: "+386 49 418 211",
   },
   {
     Name: "Friends Caffe Mitrovicë",
     Location: "https://maps.app.goo.gl/YC3gkrhL3eeLA1B89",
     City: "Mitrovicë",
+    CoffeePriceKg: 22,
+    Phone: "+383 484 305 41",
   },
   {
     Name: "Mega Center",
@@ -225,11 +230,16 @@ export const rawLocations = [
     Name: "Inna Caffe Podujeve",
     Location: "https://maps.app.goo.gl/XCBHJ3ThQk7FNdRj6?g_st=iw",
     City: "Podujevë",
+    CoffeePriceKg: 23,
+    Phone: "+377 44 700 088",
   },
   {
     Name: "Te Liqeni Batllav",
     Location: "https://maps.app.goo.gl/xK732f61BR9vNDcE7",
     City: "Podujevë",
+    CoffeePriceKg: 23,
+    CoffeeType: "crema",
+    Phone: "+383 45 213 321",
   },
   {
     Name: "Panorama Vranjevc (the view)",
@@ -241,7 +251,13 @@ export const rawLocations = [
     Location: "https://maps.google.com/?q=42.655033,21.165897",
     City: "Prishtinë",
   },
-  { Name: "Batatina 2 Lupq", Location: "Lupq", City: "Prishtinë" },
+  {
+    Name: "Batatina 2 Lupq",
+    Location: "Lupq",
+    City: "Prishtinë",
+    CoffeePriceKg: 21,
+    CoffeeType: "quadra",
+  },
   {
     Name: "Te Shoki Veterrnik",
     Location:
@@ -252,5 +268,13 @@ export const rawLocations = [
     Name: "Lon cafe",
     Location: "https://maps.google.com/?q=42.875008,20.858873",
     City: "Mitrovicë",
+  },
+  {
+    Name: "Caffe Bar Maqoku",
+    Location: "https://maps.app.goo.gl/BymLzFw552r7FGVw8?g_st=iw",
+    City: "Mitrovicë",
+    CoffeePriceKg: 25,
+    CoffeeType: "crema",
+    Phone: "+383 484 440 25",
   },
 ];

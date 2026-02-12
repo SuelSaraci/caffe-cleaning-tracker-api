@@ -32,10 +32,22 @@ export const seedDatabase = async () => {
     for (let i = 0; i < sorted.length; i++) {
       const loc = sorted[i];
       await client.query(
-        `INSERT INTO locations (id, name, location, city, cleaned, coffee_delivered, reminders, completed)
-         VALUES ($1, $2, $3, $4, false, false, '', false)
+        `INSERT INTO locations (
+           id, name, location, city,
+           cleaned, coffee_delivered, reminders, completed,
+           coffee_price_kg, coffee_type, phone
+         )
+         VALUES ($1, $2, $3, $4, false, false, '', false, $5, $6, $7)
          ON CONFLICT (id) DO NOTHING`,
-        [`loc-${i}`, loc.Name, loc.Location, loc.City ?? ""]
+        [
+          `loc-${i}`,
+          loc.Name,
+          loc.Location,
+          loc.City ?? "",
+          loc.CoffeePriceKg ?? null,
+          loc.CoffeeType ?? null,
+          loc.Phone ?? null,
+        ]
       );
     }
     console.log(`✅ Seeded ${sorted.length} locations`);

@@ -17,9 +17,20 @@ export const createTables = async () => {
         reminders TEXT DEFAULT '',
         completed BOOLEAN DEFAULT false,
         owner_acceptance JSONB,
+        coffee_price_kg NUMERIC,
+        coffee_type VARCHAR(50),
+        phone VARCHAR(50),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
+    `);
+
+    // Make sure newer columns exist even if table was created earlier
+    await client.query(`
+      ALTER TABLE locations
+        ADD COLUMN IF NOT EXISTS coffee_price_kg NUMERIC,
+        ADD COLUMN IF NOT EXISTS coffee_type VARCHAR(50),
+        ADD COLUMN IF NOT EXISTS phone VARCHAR(50)
     `);
 
     await client.query(`
