@@ -33,7 +33,7 @@ export const rawLocations = [
   {
     Name: "Fin Caffe Hajvali",
     Location: "https://maps.app.goo.gl/rHL3mAW9u4Fcgcw5A?g_st=iw",
-    City: "Hajvali",
+    City: "Prishtinë",
   },
   {
     Name: "London Bardhosh",

@@ -1,4 +1,5 @@
 import pool from "../config/database.js";
+import puppeteer from "puppeteer";
 
 function rowToLocation(row) {
   return {
@@ -164,5 +165,163 @@ export const resetLocations = async (req, res) => {
   } catch (error) {
     console.error("Error resetting locations:", error);
     res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const exportReportPdf = async (req, res) => {
+  let browser;
+  try {
+    // Fetch all locations from the database
+    const result = await pool.query("SELECT * FROM locations ORDER BY city, name");
+    const locations = result.rows.map(rowToLocation);
+
+    // Calculate current week range (Monday - Sunday)
+    const today = new Date();
+    const day = today.getDay(); // 0 (Sun) - 6 (Sat)
+    const diffToMonday = (day + 6) % 7; // convert to 0 (Mon) - 6 (Sun)
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - diffToMonday);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    const mondayStr = monday.toLocaleDateString("en-GB");
+    const sundayStr = sunday.toLocaleDateString("en-GB");
+
+    // Generate HTML content for the report
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Raporti i pastrimit të aparateve të kafesë</title>
+          <style>
+            body { 
+              font-family: Arial, sans-serif; 
+              margin: 20px; 
+            }
+            h1 { 
+              text-align: center; 
+              margin-bottom: 4px; 
+              font-size: 20px; 
+            }
+            .date { 
+              text-align: center; 
+              margin-bottom: 8px; 
+              font-size: 14px; 
+            }
+            table { 
+              width: 100%; 
+              border-collapse: collapse; 
+              margin-top: 8px; 
+              font-size: 13px; 
+            }
+            th, td { 
+              border: 1px solid #000; 
+              padding: 4px 6px; 
+              text-align: left; 
+            }
+            th { 
+              background-color: #f0f0f0; 
+            }
+            .nr-col { 
+              width: 32px; 
+              text-align: center; 
+            }
+            .lokal-col { 
+              width: 220px; 
+            }
+            .date-col { 
+              width: 80px; 
+              text-align: center; 
+            }
+            .person-col { 
+              width: 180px; 
+            }
+            .sign-col { 
+              width: 160px; 
+            }
+            .notes-col { 
+              width: 200px; 
+            }
+          </style>
+        </head>
+        <body>
+          <h1>Raporti i pastrimit të aparateve të kafesë</h1>
+          <div class="date">Java: ${mondayStr} - ${sundayStr}</div>
+          <div style="height: 8px;"></div>
+          <table>
+            <thead>
+              <tr>
+                <th class="nr-col">Nr</th>
+                <th class="lokal-col">Lokali</th>
+                <th class="date-col">Data e kryerjes</th>
+                <th class="person-col">Personi që nënshkroi</th>
+                <th class="sign-col">Nënshkrimi / Koha</th>
+                <th class="notes-col">Shënime ekstra</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${locations
+                .map((loc, index) => {
+                  const sigCell = loc.ownerAcceptance?.ownerSignature
+                    ? `<img src="${loc.ownerAcceptance.ownerSignature}" alt="Nënshkrimi" style="max-height: 40px; display: block;" />`
+                    : loc.ownerAcceptance?.acceptedTime || "";
+                  return `
+                <tr>
+                  <td>${index + 1}</td>
+                  <td>${loc.name}</td>
+                  <td>${loc.ownerAcceptance?.acceptedDate || ""}</td>
+                  <td>${loc.ownerAcceptance?.ownerName || ""}</td>
+                  <td>${sigCell}</td>
+                  <td>${loc.reminders || ""}</td>
+                </tr>
+              `;
+                })
+                .join("")}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `;
+
+    // Launch puppeteer in headless mode
+    browser = await puppeteer.launch({
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu'
+      ]
+    });
+
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+
+    // Generate PDF
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: {
+        top: '20px',
+        right: '20px',
+        bottom: '20px',
+        left: '20px'
+      }
+    });
+
+    await browser.close();
+
+    // Set response headers for PDF download
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="raport-${mondayStr.replace(/\//g, '-')}-${sundayStr.replace(/\//g, '-')}.pdf"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.end(pdfBuffer, 'binary');
+
+  } catch (error) {
+    console.error("Error generating PDF report:", error);
+    if (browser) {
+      await browser.close().catch(err => console.error("Error closing browser:", err));
+    }
+    res.status(500).json({ error: "Failed to generate PDF report" });
   }
 };
