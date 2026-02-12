@@ -299,7 +299,7 @@ export const exportReportPdf = async (req, res) => {
                 <th class="lokal-col">Lokali</th>
                 <th class="date-col">Data e kryerjes</th>
                 <th class="person-col">Personi që nënshkroi</th>
-                <th class="sign-col">Nënshkrimi / Koha</th>
+                <th class="sign-col">Nënshkrimi</th>
                 <th class="notes-col">Shënime ekstra</th>
               </tr>
             </thead>
